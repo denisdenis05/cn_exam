@@ -8,6 +8,7 @@ import {
   History,
   HelpCircle,
   Search,
+  FileText,
 } from "lucide-react";
 import "./ios.css";
 import "./App.css";
@@ -18,11 +19,13 @@ import { getExplanation } from "./utils/ai";
 import ReactMarkdown from "react-markdown";
 import { CommandPalette } from "./components/CommandPalette";
 import { questionCache } from "./utils/questionCache";
+import aiTextRaw from "./aitext.txt?raw";
 
 interface Question {
   question: string;
   answers: string[];
   correct: string; // Can be like "a", "bc", "ad", or a direct answer
+  image?: string;
 }
 
 function App() {
@@ -61,6 +64,9 @@ function App() {
   const [previousQuestionIndex, setPreviousQuestionIndex] = useState<
     number | null
   >(null);
+  const [isCustomJsonOpen, setIsCustomJsonOpen] = useState(false);
+  const [customJsonText, setCustomJsonText] = useState("");
+  const aiText = aiTextRaw;
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -519,6 +525,64 @@ function App() {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string);
+          setQuestions(data);
+          // Optionally cache the custom questions
+          questionCache.cacheQuestions(data);
+        } catch (error) {
+          console.error("Invalid JSON file");
+          alert("Invalid JSON file. Please upload a valid questions JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleCustomJsonSubmit = () => {
+    let data: Question[];
+    try {
+      if (customJsonText.trim()) {
+        data = JSON.parse(customJsonText);
+      } else {
+        alert("Please provide JSON text or upload a file.");
+        return;
+      }
+      setQuestions(data);
+      questionCache.cacheQuestions(data);
+      setIsCustomJsonOpen(false);
+      setCustomJsonText("");
+    } catch (error) {
+      console.error("Invalid JSON:", error);
+      alert("Invalid JSON. Please check your input.");
+    }
+  };
+
+  const handleFileUploadForCustom = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        setCustomJsonText(text);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const copyAiText = () => {
+    navigator.clipboard.writeText(aiText).then(() => {
+      alert("AI prompt copied to clipboard!");
+    });
+  };
+
   if (!questions.length) {
     return (
       <div className={`${containerClass} flex items-center justify-center p-4`}>
@@ -763,7 +827,11 @@ function App() {
                 <p className="text-[22px] mb-8">{currentQuestion.question}</p>
 
                 {currentQuestion.image && (
-                    <img src={currentQuestion.image} alt="Question Image" className="w-full h-auto rounded-lg shadow-md mb-8" />
+                  <img
+                    src={currentQuestion.image}
+                    alt="Question Image"
+                    className="w-full h-auto rounded-lg shadow-md mb-8"
+                  />
                 )}
 
                 <div className="space-y-3">
@@ -975,6 +1043,18 @@ function App() {
                   />
                 </div>
 
+                <div>
+                  <label className="text-[15px] text-[var(--ios-text-secondary)]">
+                    Upload Custom Questions (JSON)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileUpload}
+                    className="w-full mt-1 px-4 py-2 rounded-[10px] bg-[var(--ios-background)] border border-[var(--ios-border)] text-[var(--ios-text)]"
+                  />
+                </div>
+
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -1046,12 +1126,71 @@ function App() {
         </Dialog.Root>
 
         <button
+          onClick={() => setIsCustomJsonOpen(true)}
+          className="p-3 rounded-full bg-[var(--ios-card-background)] border border-[var(--ios-border)] text-[var(--ios-text-secondary)] hover:text-[var(--ios-text)] transition-colors"
+        >
+          <FileText size={20} />
+        </button>
+
+        <button
           onClick={() => setIsHelpOpen(true)}
           className="p-3 rounded-full bg-[var(--ios-card-background)] border border-[var(--ios-border)] text-[var(--ios-text-secondary)] hover:text-[var(--ios-text)] transition-colors"
         >
           <HelpCircle size={20} />
         </button>
       </div>
+
+      <Dialog.Root open={isCustomJsonOpen} onOpenChange={setIsCustomJsonOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+          <Dialog.Content className="fixed bottom-[100px] left-1/2 -translate-x-1/2 w-[90%] max-w-md p-6 rounded-[18px] bg-[var(--ios-card-background)] border border-[var(--ios-border)] shadow-lg text-[var(--ios-text)]">
+            <Dialog.Title className="text-[22px] mb-4">
+              Upload Custom JSON
+            </Dialog.Title>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[15px] text-[var(--ios-text-secondary)]">
+                  Upload JSON File
+                </label>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUploadForCustom}
+                  className="w-full mt-1 px-4 py-2 rounded-[10px] bg-[var(--ios-background)] border border-[var(--ios-border)] text-[var(--ios-text)]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[15px] text-[var(--ios-text-secondary)]">
+                  Or Paste JSON Text
+                </label>
+                <textarea
+                  value={customJsonText}
+                  onChange={(e) => setCustomJsonText(e.target.value)}
+                  placeholder='Paste your JSON here, e.g., [{"question": "...", "answers": [...], "correct": "..."}]'
+                  className="w-full mt-1 px-4 py-2 rounded-[10px] bg-[var(--ios-background)] border border-[var(--ios-border)] text-[var(--ios-text)] h-32 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCustomJsonSubmit}
+                  className="flex-1 py-2 rounded-[14px] bg-[var(--ios-blue-light)] text-[var(--ios-blue)]"
+                >
+                  Load Questions
+                </button>
+                <button
+                  onClick={copyAiText}
+                  className="flex-1 py-2 rounded-[14px] bg-[var(--ios-green-light)] text-[var(--ios-green)]"
+                >
+                  Copy AI Prompt
+                </button>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <Dialog.Root open={isHelpOpen} onOpenChange={setIsHelpOpen}>
         <Dialog.Portal>
@@ -1085,6 +1224,13 @@ function App() {
                 <p className="text-[15px] text-[var(--ios-text-secondary)]">
                   Some questions allow multiple answers. Select all that apply
                   before submitting.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-[17px] mb-2">Text Input Questions</h3>
+                <p className="text-[15px] text-[var(--ios-text-secondary)]">
+                  For questions without multiple choices, type your answer in
+                  the input field and press Enter to submit.
                 </p>
               </div>
             </div>

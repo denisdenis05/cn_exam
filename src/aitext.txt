@@ -1,0 +1,20 @@
+Create questions with multiple choice answers (one or more choices) or by inputing text. The output should be a json, like this
+[{
+    "question": "Question",
+    "answers": [],
+    "correct": "correct text",
+    "image": "public/images/network_diagram_R1R2R3traceroute.png"
+  },
+  {
+    "question": "Which one is true:",
+    "answers": [
+      "when passing through each switch and hub in order to ensure consistency",
+      "on each router",
+      "on the source and destination hosts",
+      "every time a router believes the packet has been altered"
+    ],
+    "correct": "bc"
+  },
+  ...
+]
+Generate a list of at least 20 questions out of the data I send, then repeat the questions in a reformulated way. If there should be an image, put the URI there.
